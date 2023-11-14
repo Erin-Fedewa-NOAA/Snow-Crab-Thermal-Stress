@@ -15,28 +15,52 @@ t2 <- read.csv("./data/LT50_tank2.csv")
 bio <- read.csv("./data/LT50_biometrics.csv")
 
 #############################
-#Tidy up data
+#Tidy up tank 1 data
 t1 %>%
-  mutate(no_alive = rowSums(dplyr::select(7:16)),
-         no_dead = no_alive - 10) #10 crab in each tank
-  pivot_longer(7:16, names_to = "tag_no", values_to = "survival") %>%
-#pivot longer and join tank 1 and 2 data
+  rowwise() %>%
+  mutate(no_alive = sum(c_across(starts_with('tag'))),
+         no_dead = 10 - no_alive) %>% #10 crab in each tank
+  ungroup() %>%
+  mutate(tank_no = 1) %>%
+  pivot_longer(7:16, names_to = "tag_no", values_to = "survival") %>% 
+#join to tank 2 
+ bind_rows(t2 %>% 
+             rowwise() %>%
+             mutate(no_alive = sum(c_across(starts_with('tag'))),
+                    no_dead = 10 - no_alive) %>% #10 crab in each tank
+             ungroup() %>%
+             mutate(tank_no = 2) %>%
+             pivot_longer(7:16, names_to = "tag_no", values_to = "survival")) -> dat
+#still need to join biometric data
 
-#join biometric data 
+#Dataset for GLM
+dat %>%
+  group_by(C_temp_read) %>%
+  summarise(no_alive = mean(no_alive, na.rm=TRUE),
+            no_dead = mean(no_dead, na.rm=TRUE)) -> mod.dat
 
- 
 #GLM to fit a curve to temperature and alive/dead counts  
-y = cbind(no_alive, no_dead)
   
-model.results = glm(y ~ C_temp_read, binomial)
+y = cbind(mod.dat$no_alive, mod.dat$no_dead)
+  
+model.results = glm(y ~ mod.dat$C_temp_read, binomial)
 summary(model.results)
 
 #Calculate LT50, median lethal temperature
-dose.p(model.results, p = 0.5)
+lt50 <- dose.p(model.results, p = 0.5)
 
 #Plots
-plot(temperature, (alive / (alive + dead)), ylab = "Proportional Survival")
+mod.dat %>%
+  mutate(prop_survival = no_alive/(no_alive + no_dead)) %>%
+  ggplot(aes(C_temp_read, prop_survival)) +
+  geom_point() + 
+  stat_smooth(method="glm", color="grey", alpha=.1, se=FALSE, 
+              method.args = list(family=binomial)) +
+  theme_bw() +
+  geom_vline(xintercept = 22.46882, linetype="dotted", 
+             color = "red", size=1) +
+  labs(y="Proportion Survival", x="Temperature (C)")
+  
 
-# See: https://lukemiller.org/index.php/2010/02/calculating-lt50-median-lethal-temperature-aka-ld50-quickly-in-r/
 
     
