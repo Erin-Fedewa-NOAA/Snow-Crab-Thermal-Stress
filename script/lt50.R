@@ -53,14 +53,16 @@ lt50 <- dose.p(model.results, p = 0.5)
 mod.dat %>%
   mutate(prop_survival = no_alive/(no_alive + no_dead)) %>%
   ggplot(aes(C_temp_read, prop_survival)) +
-  geom_point() + 
+  geom_point(size=2) + 
   stat_smooth(method="glm", color="grey", alpha=.1, se=FALSE, 
               method.args = list(family=binomial)) +
+  labs(y="Proportion Survival", x=expression("Temperature " ( degree*C))) +
+  geom_rect(aes(xmin=-Inf, xmax=22.46882, ymin=-Inf, ymax=0.5), 
+            fill=NA, alpha=0.2, colour="red",linetype="dashed") +
   theme_bw() +
-  geom_vline(xintercept = 22.46882, linetype="dotted", 
-             color = "red", size=1) +
-  labs(y="Proportion Survival", x="Temperature (C)")
+  annotate(geom="text", x=20, y=0.53, label="LT50",
+           color="red")
+  
   
 
 
-    
